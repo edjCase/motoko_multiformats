@@ -11,9 +11,9 @@ module {
     ///
     /// ```motoko
     /// let bytes : [Nat8] = [0xAC, 0x02]; // 300 encoded as varint
-    /// let ?value = VarInt.decode(bytes.vals()); // Returns: 300
+    /// let ?value = VarInt.fromBytes(bytes.vals()); // Returns: 300
     /// ```
-    public func decode(bytes : Iter.Iter<Nat8>) : Result.Result<Nat, Text> {
+    public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<Nat, Text> {
         var result : Nat64 = 0;
         var shift : Nat64 = 0;
         var bytesRead = 0;
@@ -34,11 +34,23 @@ module {
     /// Encodes a natural number as a variable-length integer.
     ///
     /// ```motoko
-    /// let encoded = VarInt.encode(300);
+    /// let encoded = VarInt.toBytes(300);
     /// // Returns: [0xAC, 0x02]
     /// ```
-    public func encode(n : Nat) : [Nat8] {
-        let buffer = Buffer.Buffer<Nat8>(5);
+    public func toBytes(n : Nat) : [Nat8] {
+        let buffer = Buffer.Buffer<Nat8>(10); // 10 bytes is enough for any varint
+        toBytesBuffer(buffer, n);
+        Buffer.toArray(buffer);
+    };
+
+    /// Encodes a natural number as a variable-length integer into a buffer.
+    ///
+    /// ```motoko
+    /// let buffer = Buffer.Buffer<Nat8>(10);
+    /// VarInt.toBytesBuffer(buffer, 300);
+    /// // buffer now contains: [0xAC, 0x02]
+    /// ```
+    public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, n : Nat) {
         var value = n;
 
         while (value >= 128) {
@@ -46,7 +58,5 @@ module {
             value := value / 128;
         };
         buffer.add(Nat8.fromNat(value));
-
-        Buffer.toArray(buffer);
     };
 };

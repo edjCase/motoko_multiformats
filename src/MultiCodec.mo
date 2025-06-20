@@ -2,6 +2,7 @@ import Nat "mo:new-base/Nat";
 import Iter "mo:new-base/Iter";
 import Nat8 "mo:new-base/Nat8";
 import Result "mo:new-base/Result";
+import Buffer "mo:base/Buffer";
 import VarInt "./VarInt";
 
 module {
@@ -44,23 +45,36 @@ module {
     /// Encodes a codec as its multicodec varint representation.
     ///
     /// ```motoko
-    /// let bytes = MultiCodec.encode(#ed25519_pub);
+    /// let bytes = MultiCodec.toBytes(#ed25519_pub);
     /// // Returns: [0xed] (varint-encoded 237)
     /// ```
-    public func encode(codec : Codec) : [Nat8] {
-        VarInt.encode(toCode(codec));
+    public func toBytes(codec : Codec) : [Nat8] {
+        let buffer = Buffer.Buffer<Nat8>(10); // 10 bytes is enough for any varint
+        toBytesBuffer(buffer, codec);
+        Buffer.toArray(buffer);
+    };
+
+    /// Encodes a codec as its multicodec varint representation into a buffer.
+    ///
+    /// ```motoko
+    /// let buffer = Buffer.Buffer<Nat8>(10);
+    /// MultiCodec.toBytesBuffer(buffer, #ed25519_pub);
+    /// // buffer now contains: [0xed]
+    /// ```
+    public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, codec : Codec) {
+        let code = toCode(codec);
+        VarInt.toBytesBuffer(buffer, code);
     };
 
     /// Decodes a multicodec varint from bytes.
-    /// Null means the bytes do not represent a valid or supported multicodec.
     ///
     /// ```motoko
     /// let bytes : [Nat8] = [0xed];
-    /// let ?codec = MultiCodec.decode(bytes.vals());
+    /// let ?codec = MultiCodec.fromBytes(bytes.vals());
     /// // Returns: #ed25519_pub
     /// ```
-    public func decode(bytes : Iter.Iter<Nat8>) : Result.Result<Codec, Text> {
-        switch (VarInt.decode(bytes)) {
+    public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<Codec, Text> {
+        switch (VarInt.fromBytes(bytes)) {
             case (#ok(code)) switch (fromCode(code)) {
                 case (?codec) #ok(codec);
                 case (null) #err("Unsupported multicodec code: " # Nat.toText(code));

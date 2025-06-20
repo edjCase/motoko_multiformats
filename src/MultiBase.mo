@@ -3,6 +3,7 @@ import Iter "mo:new-base/Iter";
 import Text "mo:new-base/Text";
 import Nat8 "mo:new-base/Nat8";
 import BaseX "mo:base-x-encoder";
+import Buffer "mo:base/Buffer";
 
 module {
 
@@ -23,14 +24,14 @@ module {
         #base16Upper; // 'F' prefix
     };
 
-    /// Encodes bytes using the specified multibase format with prefix.
+    /// Converts bytes to its base text prefix representation
     ///
     /// ```motoko
-    /// let bytes : [Nat8] = [0x48, 0x65, 0x6C, 0x6C, 0x6F]; // "Hello"
-    /// let encoded = MultiBase.encode(bytes, #base58btc);
-    /// // Returns: "z9jqo5WroCpxia1"
+    /// let bytes : [Nat8] = [0x01, 0x02, 0x03];
+    /// let text = MultiBase.fromBytes(bytes.vals(), #base58btc);
+    /// // Returns: "z3mJ" (example base58btc encoding)
     /// ```
-    public func encode(bytes : Iter.Iter<Nat8>, encoding : MultiBase) : Text {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : MultiBase) : Text {
         let baseXText = switch (encoding) {
             case (#base58btc) BaseX.toBase58(bytes);
             case (#base32) BaseX.toBase32(bytes, #standard({ isUpper = false; includePadding = false }));
@@ -45,13 +46,14 @@ module {
         prefix # baseXText;
     };
 
-    /// Decodes a multibase-encoded string, auto-detecting the encoding from prefix.
+    /// Converts base text representation to bytes with its encoding type
     ///
     /// ```motoko
-    /// let result = MultiBase.decode("z9jqo5WroCpxia1");
-    /// // Returns: #ok(([0x48, 0x65, 0x6C, 0x6C, 0x6F], #base58btc))
+    /// let text : Text = "z3mJ"; // Example base58btc encoding
+    /// let result = MultiBase.toBytes(text);
+    /// // Returns: #ok(([0x01, 0x02, 0x03], #base58btc))
     /// ```
-    public func decode(text : Text) : Result.Result<([Nat8], MultiBase), Text> {
+    public func toBytes(text : Text) : Result.Result<([Nat8], MultiBase), Text> {
         let iter = text.chars();
         let ?firstChar = iter.next() else return #err("Empty multibase string");
         let remainingText = Text.fromIter(iter);
@@ -74,13 +76,29 @@ module {
         );
     };
 
-    /// Gets the prefix for a multibase encoding.
+    /// Converts base text representation to bytes and adds it to a buffer
     ///
     /// ```motoko
-    /// let prefix = MultiBase.getPrefix(#base58btc);
-    /// // Returns: "z"
+    /// let buffer = Buffer.Buffer<Nat8>(100);
+    /// let text : Text = "z3mJ"; // Example base58btc encoding
+    /// let result = MultiBase.toBytesBuffer(buffer, text);
+    /// // buffer now contains the decoded bytes
     /// ```
-    public func getPrefix(encoding : MultiBase) : Text {
+    public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, text : Text) : Result.Result<MultiBase, Text> {
+        // TODO optimize by having BaseX use buffers
+        Result.chain(
+            toBytes(text),
+            func(result : ([Nat8], MultiBase)) : Result.Result<MultiBase, Text> {
+                let (bytes, base) = result;
+                for (byte in bytes.vals()) {
+                    buffer.add(byte);
+                };
+                #ok(base);
+            },
+        );
+    };
+
+    private func getPrefix(encoding : MultiBase) : Text {
         switch (encoding) {
             case (#base58btc) "z";
             case (#base32) "b";

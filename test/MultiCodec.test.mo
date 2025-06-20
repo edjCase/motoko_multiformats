@@ -14,7 +14,7 @@ func testMultiCodecEncoding(
     codec : Multiformats.MultiCodec.Codec,
     expectedBytes : [Nat8],
 ) {
-    let actualBytes = Multiformats.MultiCodec.encode(codec);
+    let actualBytes = Multiformats.MultiCodec.toBytes(codec);
 
     if (actualBytes != expectedBytes) {
         Debug.trap(
@@ -29,7 +29,7 @@ func testMultiCodecDecoding(
     bytes : [Nat8],
     expectedCodec : Multiformats.MultiCodec.Codec,
 ) {
-    let actualCodec = switch (Multiformats.MultiCodec.decode(bytes.vals())) {
+    let actualCodec = switch (Multiformats.MultiCodec.fromBytes(bytes.vals())) {
         case (#ok(codec)) codec;
         case (#err(err)) Debug.trap("MultiCodec decoding failed for: " # debug_show (bytes) # "\nError: " # err);
     };
@@ -44,8 +44,8 @@ func testMultiCodecDecoding(
 };
 
 func testMultiCodecRoundtrip(codec : Multiformats.MultiCodec.Codec) {
-    let encoded = Multiformats.MultiCodec.encode(codec);
-    let decoded = switch (Multiformats.MultiCodec.decode(encoded.vals())) {
+    let encoded = Multiformats.MultiCodec.toBytes(codec);
+    let decoded = switch (Multiformats.MultiCodec.fromBytes(encoded.vals())) {
         case (#ok(codec)) codec;
         case (#err(err)) Debug.trap("Round-trip decode failed for: " # debug_show (codec) # "\nError: " # err);
     };
@@ -60,7 +60,7 @@ func testMultiCodecRoundtrip(codec : Multiformats.MultiCodec.Codec) {
 };
 
 func testMultiCodecError(invalidBytes : [Nat8]) {
-    switch (Multiformats.MultiCodec.decode(invalidBytes.vals())) {
+    switch (Multiformats.MultiCodec.fromBytes(invalidBytes.vals())) {
         case (#ok(codec)) Debug.trap("Expected MultiCodec decode error for " # debug_show (invalidBytes) # " but got: " # debug_show (codec));
         case (#err(_)) {}; // Expected error
     };

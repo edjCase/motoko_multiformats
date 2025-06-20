@@ -19,7 +19,7 @@ func testMultiBaseEncoding(
     encoding : Multiformats.MultiBase.MultiBase,
     expectedText : Text,
 ) {
-    let actualText = Multiformats.MultiBase.encode(bytes.vals(), encoding);
+    let actualText = Multiformats.MultiBase.fromBytes(bytes.vals(), encoding);
 
     if (actualText != expectedText) {
         Debug.trap(
@@ -35,7 +35,7 @@ func testMultiBaseDecoding(
     expectedBytes : Blob,
     expectedEncoding : Multiformats.MultiBase.MultiBase,
 ) {
-    let (actualByteArray, actualEncoding) = switch (Multiformats.MultiBase.decode(text)) {
+    let (actualByteArray, actualEncoding) = switch (Multiformats.MultiBase.toBytes(text)) {
         case (#ok(result)) result;
         case (#err(e)) Debug.trap("MultiBase decoding failed for '" # text # "': " # e);
     };
@@ -60,8 +60,8 @@ func testMultiBaseDecoding(
 };
 
 func testMultiBaseRoundtrip(bytes : Blob, encoding : Multiformats.MultiBase.MultiBase) {
-    let encoded = Multiformats.MultiBase.encode(bytes.vals(), encoding);
-    let (decodedByteArray, decodedEncoding) = switch (Multiformats.MultiBase.decode(encoded)) {
+    let encoded = Multiformats.MultiBase.fromBytes(bytes.vals(), encoding);
+    let (decodedByteArray, decodedEncoding) = switch (Multiformats.MultiBase.toBytes(encoded)) {
         case (#ok(result)) result;
         case (#err(e)) Debug.trap("Round-trip decode failed: " # e);
     };
@@ -86,7 +86,7 @@ func testMultiBaseRoundtrip(bytes : Blob, encoding : Multiformats.MultiBase.Mult
 };
 
 func testMultiBaseError(invalidText : Text, expectedError : Text) {
-    switch (Multiformats.MultiBase.decode(invalidText)) {
+    switch (Multiformats.MultiBase.toBytes(invalidText)) {
         case (#ok(result)) Debug.trap("Expected error for '" # invalidText # "' but got: " # debug_show (result));
         case (#err(actualError)) {
             if (not Text.contains(actualError, #text expectedError)) {
@@ -259,25 +259,6 @@ test(
         );
 
         testMultiBase("\DE\AD\BE\EF", #base16Upper, "FDEADBEEF");
-    },
-);
-
-// =============================================================================
-// Prefix Detection Tests
-// =============================================================================
-
-test(
-    "MultiBase: Prefix detection",
-    func() {
-        // Test that getPrefix returns correct prefixes
-        assert (Multiformats.MultiBase.getPrefix(#base58btc) == "z");
-        assert (Multiformats.MultiBase.getPrefix(#base32) == "b");
-        assert (Multiformats.MultiBase.getPrefix(#base32Upper) == "B");
-        assert (Multiformats.MultiBase.getPrefix(#base64) == "m");
-        assert (Multiformats.MultiBase.getPrefix(#base64Url) == "u");
-        assert (Multiformats.MultiBase.getPrefix(#base64UrlPad) == "U");
-        assert (Multiformats.MultiBase.getPrefix(#base16) == "f");
-        assert (Multiformats.MultiBase.getPrefix(#base16Upper) == "F");
     },
 );
 

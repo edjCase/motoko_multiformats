@@ -44,48 +44,55 @@ module {
     ///   algorithm = #sha2_256;
     ///   digest = "\E3\B0\C4\42...";
     /// };
-    /// let bytes = MultiHash.encode(multihash);
+    /// let bytes = MultiHash.toBytes(multihash);
     /// // Returns: [0x12, 0x20, 0xE3, 0xB0, ...]
     /// ```
-    public func encode(multihash : MultiHash) : [Nat8] {
+    public func toBytes(multihash : MultiHash) : [Nat8] {
         let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
+        toBytesBuffer(buffer, multihash);
+        Buffer.toArray(buffer);
+    };
 
+    /// Encodes a multihash to its binary representation into a buffer.
+    ///
+    /// ```motoko
+    /// let multihash : MultiHash = {
+    ///   algorithm = #sha2_256;
+    ///   digest = "\E3\B0\C4\42...";
+    /// };
+    /// let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
+    /// MultiHash.toBytesBuffer(buffer, multihash);
+    /// // buffer now contains: [0x12, 0x20, 0xE3, 0xB0, ...]
+    /// ```
+    public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, multihash : MultiHash) {
         // Add algorithm code
-        let algoBytes = VarInt.encode(algorithmToCode(multihash.algorithm));
-        for (byte in algoBytes.vals()) {
-            buffer.add(byte);
-        };
+        VarInt.toBytesBuffer(buffer, algorithmToCode(multihash.algorithm));
 
         // Add digest length
-        let lengthBytes = VarInt.encode(multihash.digest.size());
-        for (byte in lengthBytes.vals()) {
-            buffer.add(byte);
-        };
+        VarInt.toBytesBuffer(buffer, multihash.digest.size());
 
         // Add digest
         for (byte in multihash.digest.vals()) {
             buffer.add(byte);
         };
-
-        Buffer.toArray(buffer);
     };
 
     /// Decodes a multihash from bytes.
     ///
     /// ```motoko
     /// let bytes : [Nat8] = [0x12, 0x20, 0xE3, 0xB0, ...];
-    /// let result = MultiHash.decode(bytes.vals());
+    /// let result = MultiHash.fromBytes(bytes.vals());
     /// ```
-    public func decode(bytes : Iter.Iter<Nat8>) : Result.Result<MultiHash, Text> {
+    public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<MultiHash, Text> {
         // Decode algorithm
-        let algoCode = switch (VarInt.decode(bytes)) {
+        let algoCode = switch (VarInt.fromBytes(bytes)) {
             case (#ok(code)) code;
             case (#err(err)) return #err("Failed to decode algorithm code Var Int: " # err);
         };
         let ?algorithm = codeToAlgorithm(algoCode) else return #err("Unknown hash algorithm: " # Nat.toText(algoCode));
 
         // Decode length
-        let length = switch (VarInt.decode(bytes)) {
+        let length = switch (VarInt.fromBytes(bytes)) {
             case (#ok(length)) length;
             case (#err(err)) return #err("Failed to decode digest length Var Int: " # err);
         };

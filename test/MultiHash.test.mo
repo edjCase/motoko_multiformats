@@ -24,7 +24,7 @@ func testMultiHashEncoding(
     multihash : Multiformats.MultiHash.MultiHash,
     expectedBytes : Blob,
 ) {
-    let actualBytes = Blob.fromArray(Multiformats.MultiHash.encode(multihash));
+    let actualBytes = Blob.fromArray(Multiformats.MultiHash.toBytes(multihash));
 
     if (actualBytes != expectedBytes) {
         Debug.trap(
@@ -39,7 +39,7 @@ func testMultiHashDecoding(
     bytes : Blob,
     expectedMultiHash : Multiformats.MultiHash.MultiHash,
 ) {
-    let actualMultiHash = switch (Multiformats.MultiHash.decode(bytes.vals())) {
+    let actualMultiHash = switch (Multiformats.MultiHash.fromBytes(bytes.vals())) {
         case (#ok(mh)) mh;
         case (#err(e)) Debug.trap("MultiHash decoding failed for " # debug_show (bytes) # ": " # e);
     };
@@ -62,8 +62,8 @@ func testMultiHashDecoding(
 };
 
 func testMultiHashRoundtrip(multihash : Multiformats.MultiHash.MultiHash) {
-    let encoded = Multiformats.MultiHash.encode(multihash);
-    let decoded = switch (Multiformats.MultiHash.decode(encoded.vals())) {
+    let encoded = Multiformats.MultiHash.toBytes(multihash);
+    let decoded = switch (Multiformats.MultiHash.fromBytes(encoded.vals())) {
         case (#ok(mh)) mh;
         case (#err(e)) Debug.trap("Round-trip decode failed for " # debug_show (multihash.algorithm) # ": " # e);
     };
@@ -86,7 +86,7 @@ func testMultiHashRoundtrip(multihash : Multiformats.MultiHash.MultiHash) {
 };
 
 func testMultiHashError(invalidBytes : [Nat8], expectedError : Text) {
-    switch (Multiformats.MultiHash.decode(invalidBytes.vals())) {
+    switch (Multiformats.MultiHash.fromBytes(invalidBytes.vals())) {
         case (#ok(mh)) Debug.trap("Expected error for " # debug_show (invalidBytes) # " but got: " # debug_show (mh));
         case (#err(actualError)) {
             if (not Text.contains(actualError, #text expectedError)) {
@@ -356,7 +356,7 @@ test(
             digest = "\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA" : Blob;
         };
 
-        let encoded = Multiformats.MultiHash.encode(testHash);
+        let encoded = Multiformats.MultiHash.toBytes(testHash);
 
         // Should start with algorithm code (0x12 for SHA-256)
         assert (encoded[0] == 0x12);

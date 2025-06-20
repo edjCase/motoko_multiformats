@@ -15,7 +15,7 @@ func testVarIntEncoding(
   value : Nat,
   expectedBytes : [Nat8],
 ) {
-  let actualBytes = Multiformats.VarInt.encode(value);
+  let actualBytes = Multiformats.VarInt.toBytes(value);
 
   if (actualBytes != expectedBytes) {
     Debug.trap(
@@ -30,7 +30,7 @@ func testVarIntDecoding(
   bytes : [Nat8],
   expectedValue : Nat,
 ) {
-  let actualValue = switch (Multiformats.VarInt.decode(bytes.vals())) {
+  let actualValue = switch (Multiformats.VarInt.fromBytes(bytes.vals())) {
     case (#ok(value)) value;
     case (#err(err)) Debug.trap("VarInt decoding failed for: " # debug_show (bytes) # "\nError: " # err);
   };
@@ -45,8 +45,8 @@ func testVarIntDecoding(
 };
 
 func testVarIntRoundtrip(value : Nat) {
-  let encoded = Multiformats.VarInt.encode(value);
-  let decoded = switch (Multiformats.VarInt.decode(encoded.vals())) {
+  let encoded = Multiformats.VarInt.toBytes(value);
+  let decoded = switch (Multiformats.VarInt.fromBytes(encoded.vals())) {
     case (#ok(value)) value;
     case (#err(err)) Debug.trap("Round-trip decode failed for: " # debug_show (value) # "\nError: " # err);
   };
@@ -61,7 +61,7 @@ func testVarIntRoundtrip(value : Nat) {
 };
 
 func testVarIntError(invalidBytes : [Nat8]) {
-  switch (Multiformats.VarInt.decode(invalidBytes.vals())) {
+  switch (Multiformats.VarInt.fromBytes(invalidBytes.vals())) {
     case (#ok(value)) Debug.trap("Expected VarInt decode error for " # debug_show (invalidBytes) # " but got: " # debug_show (value));
     case (#err(_)) {}; // Expected error
   };
