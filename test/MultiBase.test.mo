@@ -19,7 +19,7 @@ func testMultiBaseEncoding(
     encoding : Multiformats.MultiBase.MultiBase,
     expectedText : Text,
 ) {
-    let actualText = Multiformats.MultiBase.fromBytes(bytes.vals(), encoding);
+    let actualText = Multiformats.MultiBase.toText(bytes.vals(), encoding);
 
     if (actualText != expectedText) {
         Debug.trap(
@@ -35,7 +35,7 @@ func testMultiBaseDecoding(
     expectedBytes : Blob,
     expectedEncoding : Multiformats.MultiBase.MultiBase,
 ) {
-    let (actualByteArray, actualEncoding) = switch (Multiformats.MultiBase.toBytes(text)) {
+    let (actualByteArray, actualEncoding) = switch (Multiformats.MultiBase.fromText(text)) {
         case (#ok(result)) result;
         case (#err(e)) Debug.trap("MultiBase decoding failed for '" # text # "': " # e);
     };
@@ -60,8 +60,8 @@ func testMultiBaseDecoding(
 };
 
 func testMultiBaseRoundtrip(bytes : Blob, encoding : Multiformats.MultiBase.MultiBase) {
-    let encoded = Multiformats.MultiBase.fromBytes(bytes.vals(), encoding);
-    let (decodedByteArray, decodedEncoding) = switch (Multiformats.MultiBase.toBytes(encoded)) {
+    let encoded = Multiformats.MultiBase.toText(bytes.vals(), encoding);
+    let (decodedByteArray, decodedEncoding) = switch (Multiformats.MultiBase.fromText(encoded)) {
         case (#ok(result)) result;
         case (#err(e)) Debug.trap("Round-trip decode failed: " # e);
     };
@@ -86,7 +86,7 @@ func testMultiBaseRoundtrip(bytes : Blob, encoding : Multiformats.MultiBase.Mult
 };
 
 func testMultiBaseError(invalidText : Text, expectedError : Text) {
-    switch (Multiformats.MultiBase.toBytes(invalidText)) {
+    switch (Multiformats.MultiBase.fromText(invalidText)) {
         case (#ok(result)) Debug.trap("Expected error for '" # invalidText # "' but got: " # debug_show (result));
         case (#err(actualError)) {
             if (not Text.contains(actualError, #text expectedError)) {

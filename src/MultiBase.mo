@@ -3,7 +3,6 @@ import Iter "mo:new-base/Iter";
 import Text "mo:new-base/Text";
 import Nat8 "mo:new-base/Nat8";
 import BaseX "mo:base-x-encoder";
-import Buffer "mo:base/Buffer";
 
 module {
 
