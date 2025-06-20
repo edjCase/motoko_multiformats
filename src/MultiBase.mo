@@ -28,10 +28,10 @@ module {
     ///
     /// ```motoko
     /// let bytes : [Nat8] = [0x01, 0x02, 0x03];
-    /// let text = MultiBase.fromBytes(bytes.vals(), #base58btc);
+    /// let text = MultiBase.toText(bytes.vals(), #base58btc);
     /// // Returns: "z3mJ" (example base58btc encoding)
     /// ```
-    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : MultiBase) : Text {
+    public func toText(bytes : Iter.Iter<Nat8>, encoding : MultiBase) : Text {
         let baseXText = switch (encoding) {
             case (#base58btc) BaseX.toBase58(bytes);
             case (#base32) BaseX.toBase32(bytes, #standard({ isUpper = false; includePadding = false }));
@@ -50,10 +50,10 @@ module {
     ///
     /// ```motoko
     /// let text : Text = "z3mJ"; // Example base58btc encoding
-    /// let result = MultiBase.toBytes(text);
+    /// let result = MultiBase.fromText(text);
     /// // Returns: #ok(([0x01, 0x02, 0x03], #base58btc))
     /// ```
-    public func toBytes(text : Text) : Result.Result<([Nat8], MultiBase), Text> {
+    public func fromText(text : Text) : Result.Result<([Nat8], MultiBase), Text> {
         let iter = text.chars();
         let ?firstChar = iter.next() else return #err("Empty multibase string");
         let remainingText = Text.fromIter(iter);
@@ -73,28 +73,6 @@ module {
         Result.chain(
             bytesResult,
             func(bytes : [Nat8]) : Result.Result<([Nat8], MultiBase), Text> = #ok((bytes, encoding)),
-        );
-    };
-
-    /// Converts base text representation to bytes and adds it to a buffer
-    ///
-    /// ```motoko
-    /// let buffer = Buffer.Buffer<Nat8>(100);
-    /// let text : Text = "z3mJ"; // Example base58btc encoding
-    /// let result = MultiBase.toBytesBuffer(buffer, text);
-    /// // buffer now contains the decoded bytes
-    /// ```
-    public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, text : Text) : Result.Result<MultiBase, Text> {
-        // TODO optimize by having BaseX use buffers
-        Result.chain(
-            toBytes(text),
-            func(result : ([Nat8], MultiBase)) : Result.Result<MultiBase, Text> {
-                let (bytes, base) = result;
-                for (byte in bytes.vals()) {
-                    buffer.add(byte);
-                };
-                #ok(base);
-            },
         );
     };
 
