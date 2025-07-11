@@ -41,7 +41,7 @@ module {
             case (#base16) BaseX.toBase16(bytes, { isUpper = false; prefix = #none });
             case (#base16Upper) BaseX.toBase16(bytes, { isUpper = true; prefix = #none });
         };
-        let prefix = getPrefix(encoding);
+        let prefix = Text.fromChar(baseToChar(encoding));
         prefix # baseXText;
     };
 
@@ -55,36 +55,69 @@ module {
     public func fromText(text : Text) : Result.Result<([Nat8], MultiBase), Text> {
         let iter = text.chars();
         let ?firstChar = iter.next() else return #err("Empty multibase string");
+        let ?baseEncoding = baseFromChar(firstChar) else return #err("Unsupported multibase prefix: " # Text.fromChar(firstChar));
+        //
         let remainingText = Text.fromIter(iter);
 
-        let (bytesResult, encoding) : (Result.Result<[Nat8], Text>, MultiBase) = switch (firstChar) {
-            case ('z') (BaseX.fromBase58(remainingText), #base58btc);
-            case ('b') (BaseX.fromBase32(remainingText, #standard), #base32);
-            case ('B') (BaseX.fromBase32(remainingText, #standard), #base32Upper);
-            case ('m') (BaseX.fromBase64(remainingText), #base64);
-            case ('u') (BaseX.fromBase64(remainingText), #base64Url);
-            case ('U') (BaseX.fromBase64(remainingText), #base64UrlPad);
-            case ('f') (BaseX.fromBase16(remainingText, { prefix = #none }), #base16);
-            case ('F') (BaseX.fromBase16(remainingText, { prefix = #none }), #base16Upper);
-            case (_) return #err("Unsupported multibase prefix: " # Text.fromChar(firstChar));
+        let bytesResult : Result.Result<[Nat8], Text> = switch (baseEncoding) {
+            case (#base58btc) BaseX.fromBase58(remainingText);
+            case (#base32) BaseX.fromBase32(remainingText, #standard);
+            case (#base32Upper) BaseX.fromBase32(remainingText, #standard);
+            case (#base64) BaseX.fromBase64(remainingText);
+            case (#base64Url) BaseX.fromBase64(remainingText);
+            case (#base64UrlPad) BaseX.fromBase64(remainingText);
+            case (#base16) BaseX.fromBase16(remainingText, { prefix = #none });
+            case (#base16Upper) BaseX.fromBase16(remainingText, { prefix = #none });
         };
 
         Result.chain(
             bytesResult,
-            func(bytes : [Nat8]) : Result.Result<([Nat8], MultiBase), Text> = #ok((bytes, encoding)),
+            func(bytes : [Nat8]) : Result.Result<([Nat8], MultiBase), Text> = #ok((bytes, baseEncoding)),
         );
     };
 
-    private func getPrefix(encoding : MultiBase) : Text {
+    /// Converts a character prefix to its corresponding MultiBase encoding type
+    ///
+    /// ```motoko
+    /// let encoding = MultiBase.baseFromChar('z');
+    /// // Returns: ?#base58btc
+    ///
+    /// let invalid = MultiBase.baseFromChar('x');
+    /// // Returns: null
+    /// ```
+    public func baseFromChar(char : Char) : ?MultiBase {
+        switch (char) {
+            case ('z') ?#base58btc;
+            case ('b') ?#base32;
+            case ('B') ?#base32Upper;
+            case ('m') ?#base64;
+            case ('u') ?#base64Url;
+            case ('U') ?#base64UrlPad;
+            case ('f') ?#base16;
+            case ('F') ?#base16Upper;
+            case (_) null;
+        };
+    };
+
+    /// Converts a MultiBase encoding type to its corresponding character prefix
+    ///
+    /// ```motoko
+    /// let char = MultiBase.baseToChar(#base58btc);
+    /// // Returns: 'z'
+    ///
+    /// let base32Char = MultiBase.baseToChar(#base32);
+    /// // Returns: 'b'
+    /// ```
+    public func baseToChar(encoding : MultiBase) : Char {
         switch (encoding) {
-            case (#base58btc) "z";
-            case (#base32) "b";
-            case (#base32Upper) "B";
-            case (#base64) "m";
-            case (#base64Url) "u";
-            case (#base64UrlPad) "U";
-            case (#base16) "f";
-            case (#base16Upper) "F";
+            case (#base58btc) 'z';
+            case (#base32) 'b';
+            case (#base32Upper) 'B';
+            case (#base64) 'm';
+            case (#base64Url) 'u';
+            case (#base64UrlPad) 'U';
+            case (#base16) 'f';
+            case (#base16Upper) 'F';
         };
     };
 };
