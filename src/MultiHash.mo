@@ -6,6 +6,7 @@ import Nat8 "mo:new-base/Nat8";
 import Blob "mo:new-base/Blob";
 import Buffer "mo:base/Buffer";
 import VarInt "./VarInt";
+import IterTools "mo:itertools/Iter";
 
 module {
 
@@ -102,7 +103,7 @@ module {
         };
 
         // Decode digest
-        let digestBytes = Iter.toArray(bytes);
+        let digestBytes = Iter.toArray(IterTools.take(bytes, expectedLength));
         if (digestBytes.size() != expectedLength) {
             return #err("Insufficient digest bytes: expected " # Nat.toText(expectedLength) # ", got " # Nat.toText(digestBytes.size()));
         };
