@@ -3,6 +3,7 @@ import Iter "mo:new-base/Iter";
 import Text "mo:new-base/Text";
 import Nat8 "mo:new-base/Nat8";
 import Blob "mo:new-base/Blob";
+import Array "mo:new-base/Array";
 import BaseX "mo:base-x-encoder";
 
 module {
@@ -137,6 +138,66 @@ module {
             case (#base64UrlPad) fromUtf8(iter, #base64UrlPad);
             case (#base16) fromUtf8(iter, #base16);
             case (#base16Upper) fromUtf8(iter, #base16Upper);
+        };
+    };
+
+    /// Converts bytes to multibase-encoded bytes with encoding type prefix
+    ///
+    /// This is the complement to fromEncodedBytes, used for encoding data that will be
+    /// stored in binary formats like DAGCBOR. The first byte indicates the encoding type,
+    /// followed by the encoded data as UTF-8 bytes (except for identity encoding).
+    ///
+    /// ```motoko
+    /// let bytes : [Nat8] = [0x01, 0x02, 0x03];
+    /// let encodedBytes = MultiBase.toEncodedBytes(bytes.vals(), #base58btc);
+    /// // Returns: [0x5a, 0x33, 0x6d, 0x4a] ('z' prefix + base58 data as UTF-8)
+    ///
+    /// let identityBytes = MultiBase.toEncodedBytes(bytes.vals(), #identity);
+    /// // Returns: [0x00, 0x01, 0x02, 0x03] (identity prefix + raw data)
+    /// ```
+    public func toEncodedBytes(bytes : Iter.Iter<Nat8>, encoding : MultiBaseOrIdentity) : [Nat8] {
+        let prefixByte = baseToByte(encoding);
+
+        switch (encoding) {
+            case (#identity) {
+                // For identity, just prepend the prefix byte to the raw data
+                Array.concat([prefixByte], Iter.toArray(bytes));
+            };
+            case (_) {
+                // For other encodings, encode to text first, then to UTF-8 bytes
+                let encodedText = switch (encoding) {
+                    case (#base58btc) toText(bytes, #base58btc);
+                    case (#base32) toText(bytes, #base32);
+                    case (#base32Upper) toText(bytes, #base32Upper);
+                    case (#base64) toText(bytes, #base64);
+                    case (#base64Url) toText(bytes, #base64Url);
+                    case (#base64UrlPad) toText(bytes, #base64UrlPad);
+                    case (#base16) toText(bytes, #base16);
+                    case (#base16Upper) toText(bytes, #base16Upper);
+                    case (#identity) ""; // Should not reach here
+                };
+                // Remove the first character (the multibase prefix) from the text
+                let textWithoutPrefix = Text.trimStart(
+                    encodedText,
+                    #char(
+                        baseToChar(
+                            switch (encoding) {
+                                case (#base58btc) #base58btc;
+                                case (#base32) #base32;
+                                case (#base32Upper) #base32Upper;
+                                case (#base64) #base64;
+                                case (#base64Url) #base64Url;
+                                case (#base64UrlPad) #base64UrlPad;
+                                case (#base16) #base16;
+                                case (#base16Upper) #base16Upper;
+                                case (#identity) #base58btc; // Should not reach here
+                            }
+                        )
+                    ),
+                );
+                let encodedBlob = Text.encodeUtf8(textWithoutPrefix);
+                Array.concat([prefixByte], Blob.toArray(encodedBlob));
+            };
         };
     };
 

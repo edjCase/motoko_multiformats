@@ -495,6 +495,49 @@ test(
         if (decodedBytes2 != expectedHelloBytes) {
             Debug.trap("Base16 decoding mismatch\nExpected: " # debug_show (expectedHelloBytes) # "\nActual: " # debug_show (decodedBytes2));
         };
+
+        // Test round-trip encoding/decoding with toEncodedBytes
+        let testBytes : [Nat8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB];
+        let encodings : [Multiformats.MultiBase.MultiBaseOrIdentity] = [
+            #identity,
+            #base58btc,
+            #base32,
+            #base32Upper,
+            #base64,
+            #base64Url,
+            #base64UrlPad,
+            #base16,
+            #base16Upper,
+        ];
+
+        for (testEncoding in encodings.vals()) {
+            // Encode bytes to encoded bytes
+            let encodedBytes = Multiformats.MultiBase.toEncodedBytes(testBytes.vals(), testEncoding);
+
+            // Decode back to original bytes
+            let (roundTripBytes, roundTripEncoding) = switch (Multiformats.MultiBase.fromEncodedBytes(encodedBytes.vals())) {
+                case (#ok(result)) result;
+                case (#err(e)) Debug.trap("Round-trip fromEncodedBytes failed for " # debug_show (testEncoding) # ": " # e);
+            };
+
+            // Verify bytes match
+            if (roundTripBytes != testBytes) {
+                Debug.trap(
+                    "Round-trip bytes mismatch for " # debug_show (testEncoding) #
+                    "\nExpected: " # debug_show (testBytes) #
+                    "\nActual:   " # debug_show (roundTripBytes)
+                );
+            };
+
+            // Verify encoding matches
+            if (roundTripEncoding != testEncoding) {
+                Debug.trap(
+                    "Round-trip encoding mismatch for " # debug_show (testEncoding) #
+                    "\nExpected: " # debug_show (testEncoding) #
+                    "\nActual:   " # debug_show (roundTripEncoding)
+                );
+            };
+        };
     },
 );
 
