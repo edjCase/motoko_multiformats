@@ -2,6 +2,7 @@ import Result "mo:new-base/Result";
 import Iter "mo:new-base/Iter";
 import Text "mo:new-base/Text";
 import Nat8 "mo:new-base/Nat8";
+import Blob "mo:new-base/Blob";
 import BaseX "mo:base-x-encoder";
 
 module {
@@ -21,6 +22,16 @@ module {
         #base64UrlPad; // 'U' prefix
         #base16; // 'f' prefix
         #base16Upper; // 'F' prefix
+    };
+
+    /// Represents the multibase encoding format with its character prefix, including identity.
+    ///
+    /// ```motoko
+    /// let encoding : MultiBaseOrIdentity = #base58btc; // 'z' prefix
+    /// let identityEncoding : MultiBaseOrIdentity = #identity; // NUL (0x00) prefix
+    /// ```
+    public type MultiBaseOrIdentity = MultiBase or {
+        #identity; // 0x00 byte only prefix (no encoding)
     };
 
     /// Converts bytes to its base text prefix representation
@@ -59,21 +70,124 @@ module {
         //
         let remainingText = Text.fromIter(iter);
 
-        let bytesResult : Result.Result<[Nat8], Text> = switch (baseEncoding) {
-            case (#base58btc) BaseX.fromBase58(remainingText);
-            case (#base32) BaseX.fromBase32(remainingText, #standard);
-            case (#base32Upper) BaseX.fromBase32(remainingText, #standard);
-            case (#base64) BaseX.fromBase64(remainingText);
-            case (#base64Url) BaseX.fromBase64(remainingText);
-            case (#base64UrlPad) BaseX.fromBase64(remainingText);
-            case (#base16) BaseX.fromBase16(remainingText, { prefix = #none });
-            case (#base16Upper) BaseX.fromBase16(remainingText, { prefix = #none });
-        };
+        let bytesResult : Result.Result<[Nat8], Text> = fromTextWithoutPrefix(remainingText, baseEncoding);
 
         Result.chain(
             bytesResult,
             func(bytes : [Nat8]) : Result.Result<([Nat8], MultiBase), Text> = #ok((bytes, baseEncoding)),
         );
+    };
+
+    /// Converts base text representation to bytes using a specific encoding type
+    ///
+    /// ```motoko
+    /// let text = "3mJ"; // Base58 encoded data without prefix
+    /// let result = MultiBase.fromTextWithoutPrefix(text, #base58btc);
+    /// // Returns: #ok([0x01, 0x02, 0x03])
+    /// ```
+    public func fromTextWithoutPrefix(text : Text, encoding : MultiBase) : Result.Result<[Nat8], Text> {
+        switch (encoding) {
+            case (#base58btc) BaseX.fromBase58(text);
+            case (#base32) BaseX.fromBase32(text, #standard);
+            case (#base32Upper) BaseX.fromBase32(text, #standard);
+            case (#base64) BaseX.fromBase64(text);
+            case (#base64Url) BaseX.fromBase64(text);
+            case (#base64UrlPad) BaseX.fromBase64(text);
+            case (#base16) BaseX.fromBase16(text, { prefix = #none });
+            case (#base16Upper) BaseX.fromBase16(text, { prefix = #none });
+        };
+    };
+
+    /// Converts multibase-encoded bytes to their original bytes with encoding type
+    ///
+    /// This is commonly used for CID byte decoding when there is a prefix before the CID,
+    /// such as when used in DAGCBOR where the multibase encoding is stored as bytes rather
+    /// than text. The first byte indicates the encoding type, followed by the encoded data.
+    ///
+    /// ```motoko
+    /// let encodedBytes : [Nat8] = [0x5a, 0x33, 0x6d, 0x4a]; // 'z' prefix + base58 data
+    /// let result = MultiBase.fromEncodedBytes(encodedBytes.vals());
+    /// // Returns: #ok(([0x01, 0x02, 0x03], #base58btc))
+    ///
+    /// let identityBytes : [Nat8] = [0x00, 0x01, 0x02, 0x03]; // identity prefix + raw data
+    /// let result2 = MultiBase.fromEncodedBytes(identityBytes.vals());
+    /// // Returns: #ok(([0x01, 0x02, 0x03], #identity))
+    /// ```
+    public func fromEncodedBytes(bytes : Iter.Iter<Nat8>) : Result.Result<([Nat8], MultiBaseOrIdentity), Text> {
+        let iter = bytes;
+        let ?firstByte = iter.next() else return #err("Empty multibase bytes");
+        let ?baseEncoding = baseFromByte(firstByte) else return #err("Unsupported multibase byte: " # Nat8.toText(firstByte));
+
+        func fromUtf8(iter : Iter.Iter<Nat8>, baseEncoding : MultiBase) : Result.Result<([Nat8], MultiBase), Text> {
+            let ?utf8Text = Text.decodeUtf8(Blob.fromArray(Iter.toArray(iter))) else return #err("Invalid UTF-8 encoding");
+            let result = fromTextWithoutPrefix(utf8Text, baseEncoding);
+            Result.chain(
+                result,
+                func(bytes : [Nat8]) : Result.Result<([Nat8], MultiBase), Text> = #ok((bytes, baseEncoding)),
+            );
+        };
+
+        switch (baseEncoding) {
+            case (#identity) #ok((Iter.toArray(iter), baseEncoding));
+            case (#base58btc) fromUtf8(iter, #base58btc);
+            case (#base32) fromUtf8(iter, #base32);
+            case (#base32Upper) fromUtf8(iter, #base32Upper);
+            case (#base64) fromUtf8(iter, #base64);
+            case (#base64Url) fromUtf8(iter, #base64Url);
+            case (#base64UrlPad) fromUtf8(iter, #base64UrlPad);
+            case (#base16) fromUtf8(iter, #base16);
+            case (#base16Upper) fromUtf8(iter, #base16Upper);
+        };
+    };
+
+    /// Converts a byte value to its corresponding MultiBase encoding type (including identity)
+    ///
+    /// ```motoko
+    /// let encoding = MultiBase.baseFromByte(0x5a); // 'z' as byte
+    /// // Returns: ?#base58btc
+    ///
+    /// let identity = MultiBase.baseFromByte(0x00); // identity (no encoding)
+    /// // Returns: ?#identity
+    ///
+    /// let invalid = MultiBase.baseFromByte(0xFF); // invalid byte
+    /// // Returns: null
+    /// ```
+    public func baseFromByte(byte : Nat8) : ?MultiBaseOrIdentity {
+        switch (byte) {
+            case (0x00) ?#identity; // NUL
+            case (0x5a) ?#base58btc; // 'z'
+            case (0x62) ?#base32; // 'b'
+            case (0x42) ?#base32Upper; // 'B'
+            case (0x6d) ?#base64; // 'm'
+            case (0x75) ?#base64Url; // 'u'
+            case (0x55) ?#base64UrlPad; // 'U'
+            case (0x66) ?#base16; // 'f'
+            case (0x46) ?#base16Upper; // 'F'
+            case (_) null;
+        };
+    };
+
+    /// Converts a MultiBase encoding type (including identity) to its corresponding byte value
+    ///
+    /// ```motoko
+    /// let byte = MultiBase.baseToByte(#base58btc);
+    /// // Returns: 0x5a ('z' as byte)
+    ///
+    /// let identityByte = MultiBase.baseToByte(#identity);
+    /// // Returns: 0x00
+    /// ```
+    public func baseToByte(encoding : MultiBaseOrIdentity) : Nat8 {
+        switch (encoding) {
+            case (#identity) 0x00; // NUL
+            case (#base58btc) 0x5a; // 'z'
+            case (#base32) 0x62; // 'b'
+            case (#base32Upper) 0x42; // 'B'
+            case (#base64) 0x6d; // 'm'
+            case (#base64Url) 0x75; // 'u'
+            case (#base64UrlPad) 0x55; // 'U'
+            case (#base16) 0x66; // 'f'
+            case (#base16Upper) 0x46; // 'F'
+        };
     };
 
     /// Converts a character prefix to its corresponding MultiBase encoding type

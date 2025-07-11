@@ -2,6 +2,9 @@ import Multiformats "../src"; // Adjust path to your multiformats module
 import Debug "mo:base/Debug";
 import Text "mo:new-base/Text";
 import Blob "mo:new-base/Blob";
+import Nat8 "mo:new-base/Nat8";
+import Array "mo:new-base/Array";
+import Buffer "mo:base/Buffer";
 import { test } "mo:test";
 
 func testMultiBase(
@@ -85,16 +88,10 @@ func testMultiBaseRoundtrip(bytes : Blob, encoding : Multiformats.MultiBase.Mult
     };
 };
 
-func testMultiBaseError(invalidText : Text, expectedError : Text) {
+func testMultiBaseError(invalidText : Text) {
     switch (Multiformats.MultiBase.fromText(invalidText)) {
         case (#ok(result)) Debug.trap("Expected error for '" # invalidText # "' but got: " # debug_show (result));
-        case (#err(actualError)) {
-            if (not Text.contains(actualError, #text expectedError)) {
-                Debug.print("Warning: Error message mismatch for '" # invalidText # "'");
-                Debug.print("Expected to contain: " # expectedError);
-                Debug.print("Actual: " # actualError);
-            };
-        };
+        case (#err(_)) {};
     };
 };
 
@@ -308,19 +305,19 @@ test(
     "MultiBase: Error cases",
     func() {
         // Empty string
-        testMultiBaseError("", "Empty multibase");
+        testMultiBaseError("");
 
         // Unknown prefix
-        testMultiBaseError("xabc123", "Unsupported multibase prefix");
+        testMultiBaseError("xabc123");
 
         // Invalid base58
-        testMultiBaseError("z0OIl", "Failed to decode"); // 0, O, I, l are not in base58
+        testMultiBaseError("z0OIl"); // 0, O, I, l are not in base58
 
         // Invalid base32
-        testMultiBaseError("b189", "Failed to decode"); // 1, 8, 9 not in base32
+        testMultiBaseError("b189"); // 1, 8, 9 not in base32
 
         // Invalid hex
-        testMultiBaseError("fghij", "Failed to decode"); // g, h, i, j not in hex
+        testMultiBaseError("fghij"); // g, h, i, j not in hex
     },
 );
 
@@ -348,5 +345,267 @@ test(
             "\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB" : Blob,
             #base16,
         );
+    },
+);
+
+// =============================================================================
+// New Function Tests
+// =============================================================================
+
+test(
+    "MultiBase: baseFromByte and baseToByte tests",
+    func() {
+        // Test all valid byte mappings
+        let testCases : [(Nat8, Multiformats.MultiBase.MultiBaseOrIdentity)] = [
+            (0x00, #identity),
+            (0x5a, #base58btc),
+            (0x62, #base32),
+            (0x42, #base32Upper),
+            (0x6d, #base64),
+            (0x75, #base64Url),
+            (0x55, #base64UrlPad),
+            (0x66, #base16),
+            (0x46, #base16Upper),
+        ];
+
+        for ((byte, encoding) in testCases.vals()) {
+            // Test byte to encoding
+            let actualEncoding = switch (Multiformats.MultiBase.baseFromByte(byte)) {
+                case (?enc) enc;
+                case null Debug.trap("baseFromByte failed for byte: " # debug_show (byte));
+            };
+
+            if (actualEncoding != encoding) {
+                Debug.trap(
+                    "baseFromByte mismatch for byte " # debug_show (byte) #
+                    "\nExpected: " # debug_show (encoding) #
+                    "\nActual:   " # debug_show (actualEncoding)
+                );
+            };
+
+            // Test encoding to byte
+            let actualByte = Multiformats.MultiBase.baseToByte(encoding);
+            if (actualByte != byte) {
+                Debug.trap(
+                    "baseToByte mismatch for encoding " # debug_show (encoding) #
+                    "\nExpected: " # debug_show (byte) #
+                    "\nActual:   " # debug_show (actualByte)
+                );
+            };
+        };
+
+        // Test invalid bytes
+        let invalidBytes : [Nat8] = [0x01, 0x99, 0xFF, 0x12, 0x34];
+        for (invalidByte in invalidBytes.vals()) {
+            switch (Multiformats.MultiBase.baseFromByte(invalidByte)) {
+                case (?_) Debug.trap("baseFromByte should return null for invalid byte: " # debug_show (invalidByte));
+                case null {}; // Expected
+            };
+        };
+    },
+);
+
+test(
+    "MultiBase: fromTextWithoutPrefix tests",
+    func() {
+        // Test various encodings without prefixes
+        let testCases : [(Text, Multiformats.MultiBase.MultiBase, Blob)] = [
+            ("JxF12TrwUP45BMd", #base58btc, "\48\65\6C\6C\6F\20\57\6F\72\6C\64"),
+            ("jbswy3dpeblw64tmmq", #base32, "\48\65\6C\6C\6F\20\57\6F\72\6C\64"),
+            ("JBSWY3DP", #base32Upper, "\48\65\6C\6C\6F"),
+            ("SGVsbG8gV29ybGQ", #base64, "\48\65\6C\6C\6F\20\57\6F\72\6C\64"),
+            ("SGVsbG8gV29ybGQ", #base64Url, "\48\65\6C\6C\6F\20\57\6F\72\6C\64"),
+            ("SGVsbG8", #base64UrlPad, "\48\65\6C\6C\6F"),
+            ("48656c6c6f", #base16, "\48\65\6C\6C\6F"),
+            ("48656C6C6F", #base16Upper, "\48\65\6C\6C\6F"),
+        ];
+
+        for ((text, encoding, expectedBytes) in testCases.vals()) {
+            let actualBytesArray = switch (Multiformats.MultiBase.fromTextWithoutPrefix(text, encoding)) {
+                case (#ok(bytes)) bytes;
+                case (#err(e)) Debug.trap("fromTextWithoutPrefix failed for " # text # " with encoding " # debug_show (encoding) # ": " # e);
+            };
+
+            let actualBytes = Blob.fromArray(actualBytesArray);
+            if (actualBytes != expectedBytes) {
+                Debug.trap(
+                    "fromTextWithoutPrefix mismatch for " # text # " with encoding " # debug_show (encoding) #
+                    "\nExpected: " # debug_show (expectedBytes) #
+                    "\nActual:   " # debug_show (actualBytes)
+                );
+            };
+        };
+
+        // Test error cases
+        let errorCases : [(Text, Multiformats.MultiBase.MultiBase)] = [
+            ("0OIl", #base58btc), // Invalid base58 characters
+            ("189", #base32), // Invalid base32 characters
+            ("ghij", #base16), // Invalid hex characters
+        ];
+
+        for ((invalidText, encoding) in errorCases.vals()) {
+            switch (Multiformats.MultiBase.fromTextWithoutPrefix(invalidText, encoding)) {
+                case (#ok(_)) Debug.trap("fromTextWithoutPrefix should fail for invalid text: " # invalidText);
+                case (#err(_)) {}; // Expected
+            };
+        };
+    },
+);
+
+test(
+    "MultiBase: fromEncodedBytes tests",
+    func() {
+        // Test identity encoding (no encoding)
+        let identityBytes : [Nat8] = [0x00, 0x01, 0x02, 0x03, 0x04];
+        let (decodedBytes, encoding) = switch (Multiformats.MultiBase.fromEncodedBytes(identityBytes.vals())) {
+            case (#ok(result)) result;
+            case (#err(e)) Debug.trap("fromEncodedBytes failed for identity: " # e);
+        };
+
+        if (decodedBytes != [0x01, 0x02, 0x03, 0x04]) {
+            Debug.trap("Identity decoding mismatch\nExpected: [1, 2, 3, 4]\nActual: " # debug_show (decodedBytes));
+        };
+
+        if (encoding != #identity) {
+            Debug.trap("Identity encoding detection failed\nExpected: #identity\nActual: " # debug_show (encoding));
+        };
+
+        // Test base16 encoding (simpler to test)
+        // "Hello" -> base16 -> "48656c6c6f" -> as UTF-8 bytes with 'f' prefix
+        let base16Text = "48656c6c6f";
+        let base16TextBytes = Blob.toArray(Text.encodeUtf8(base16Text));
+        let base16Buffer = Buffer.Buffer<Nat8>(1 + base16TextBytes.size());
+        base16Buffer.add(0x66); // 'f' prefix
+        for (byte in base16TextBytes.vals()) {
+            base16Buffer.add(byte);
+        };
+        let base16Bytes = Buffer.toArray(base16Buffer);
+
+        let (decodedBytes2, encoding2) = switch (Multiformats.MultiBase.fromEncodedBytes(base16Bytes.vals())) {
+            case (#ok(result)) result;
+            case (#err(e)) Debug.trap("fromEncodedBytes failed for base16: " # e);
+        };
+
+        if (encoding2 != #base16) {
+            Debug.trap("Base16 encoding detection failed\nExpected: #base16\nActual: " # debug_show (encoding2));
+        };
+
+        // The decoded bytes should be "Hello"
+        let expectedHelloBytes : [Nat8] = [0x48, 0x65, 0x6C, 0x6C, 0x6F];
+        if (decodedBytes2 != expectedHelloBytes) {
+            Debug.trap("Base16 decoding mismatch\nExpected: " # debug_show (expectedHelloBytes) # "\nActual: " # debug_show (decodedBytes2));
+        };
+    },
+);
+
+test(
+    "MultiBase: fromEncodedBytes error cases",
+    func() {
+        // Empty bytes
+        switch (Multiformats.MultiBase.fromEncodedBytes([].vals())) {
+            case (#ok(_)) Debug.trap("fromEncodedBytes should fail for empty bytes");
+            case (#err(e)) {
+                if (not Text.contains(e, #text "Empty multibase")) {
+                    Debug.trap("Unexpected error message for empty bytes: " # e);
+                };
+            };
+        };
+
+        // Invalid prefix byte
+        let invalidPrefix : [Nat8] = [0x99, 0x01, 0x02, 0x03];
+        switch (Multiformats.MultiBase.fromEncodedBytes(invalidPrefix.vals())) {
+            case (#ok(_)) Debug.trap("fromEncodedBytes should fail for invalid prefix");
+            case (#err(e)) {
+                if (not Text.contains(e, #text "Unsupported multibase byte")) {
+                    Debug.trap("Unexpected error message for invalid prefix: " # e);
+                };
+            };
+        };
+
+        // Invalid UTF-8 encoding for non-identity
+        let invalidUtf8 : [Nat8] = [0x5a, 0xFF, 0xFE, 0xFD]; // 'z' prefix + invalid UTF-8
+        switch (Multiformats.MultiBase.fromEncodedBytes(invalidUtf8.vals())) {
+            case (#ok(_)) Debug.trap("fromEncodedBytes should fail for invalid UTF-8");
+            case (#err(e)) {
+                if (not Text.contains(e, #text "Invalid UTF-8")) {
+                    Debug.trap("Unexpected error message for invalid UTF-8: " # e);
+                };
+            };
+        };
+    },
+);
+
+test(
+    "MultiBase: CID-style byte decoding integration test",
+    func() {
+        // Simulate a CID stored in DAGCBOR format
+        // This would be a common use case for fromEncodedBytes
+
+        // Create a mock CID hash (32 bytes)
+        let mockHash : [Nat8] = [
+            0x12,
+            0x34,
+            0x56,
+            0x78,
+            0x9A,
+            0xBC,
+            0xDE,
+            0xF0,
+            0x11,
+            0x22,
+            0x33,
+            0x44,
+            0x55,
+            0x66,
+            0x77,
+            0x88,
+            0x99,
+            0xAA,
+            0xBB,
+            0xCC,
+            0xDD,
+            0xEE,
+            0xFF,
+            0x00,
+            0x01,
+            0x02,
+            0x03,
+            0x04,
+            0x05,
+            0x06,
+            0x07,
+            0x08,
+        ];
+
+        // Test with identity encoding (common for CIDs)
+        let identityEncodedCid : [Nat8] = Array.concat([0x00 : Nat8], mockHash);
+        let (decodedHash, encoding) = switch (Multiformats.MultiBase.fromEncodedBytes(identityEncodedCid.vals())) {
+            case (#ok(result)) result;
+            case (#err(e)) Debug.trap("CID identity decoding failed: " # e);
+        };
+
+        if (decodedHash != mockHash) {
+            Debug.trap("CID hash decoding mismatch\nExpected: " # debug_show (mockHash) # "\nActual: " # debug_show (decodedHash));
+        };
+
+        if (encoding != #identity) {
+            Debug.trap("CID encoding detection failed\nExpected: #identity\nActual: " # debug_show (encoding));
+        };
+
+        // Test with base32 encoding (also common for CIDs)
+        let base32EncodedHash = Multiformats.MultiBase.toText(mockHash.vals(), #base32);
+        let base32Bytes : [Nat8] = Array.concat([0x62 : Nat8], Blob.toArray(Text.encodeUtf8(Text.trimStart(base32EncodedHash, #char 'b'))));
+        let (decodedHash2, encoding2) = switch (Multiformats.MultiBase.fromEncodedBytes(base32Bytes.vals())) {
+            case (#ok(result)) result;
+            case (#err(e)) Debug.trap("CID base32 decoding failed: " # e);
+        };
+
+        if (decodedHash2 != mockHash) {
+            Debug.trap("CID base32 hash decoding mismatch\nExpected: " # debug_show (mockHash) # "\nActual: " # debug_show (decodedHash2));
+        };
+
+        if (encoding2 != #base32) {
+            Debug.trap("CID base32 encoding detection failed\nExpected: #base32\nActual: " # debug_show (encoding2));
+        };
     },
 );

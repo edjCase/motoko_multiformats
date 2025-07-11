@@ -53,6 +53,16 @@ public type MultiBase = {
 };
 ```
 
+**`MultiBaseOrIdentity`**
+
+Extends MultiBase to include identity encoding (no encoding):
+
+```motoko
+public type MultiBaseOrIdentity = MultiBase or {
+    #identity; // 0x00 byte prefix (no encoding)
+};
+```
+
 #### Functions
 
 **`toText(bytes: Iter.Iter<Nat8>, encoding: MultiBase): Text`**
@@ -73,6 +83,54 @@ Converts multibase text back to bytes and encoding type:
 let text = "z3mJ"; // Example base58btc encoding
 let result = MultiBase.fromText(text);
 // Returns: #ok(([0x01, 0x02, 0x03], #base58btc))
+```
+
+**`fromTextWithEncoding(text: Text, encoding: MultiBase): Result.Result<[Nat8], Text>`**
+
+Converts base text to bytes using a specific encoding type (without prefix):
+
+```motoko
+let text = "3mJ"; // Base58 encoded data without prefix
+let result = MultiBase.fromTextWithEncoding(text, #base58btc);
+// Returns: #ok([0x01, 0x02, 0x03])
+```
+
+**`fromEncodedBytes(bytes: Iter.Iter<Nat8>): Result.Result<([Nat8], MultiBaseOrIdentity), Text>`**
+
+Converts multibase-encoded bytes to their original bytes with encoding type. Used for CID byte decoding in DAGCBOR:
+
+```motoko
+let encodedBytes: [Nat8] = [0x5a, 0x33, 0x6d, 0x4a]; // 'z' prefix + base58 data
+let result = MultiBase.fromEncodedBytes(encodedBytes.vals());
+// Returns: #ok(([0x01, 0x02, 0x03], #base58btc))
+
+let identityBytes: [Nat8] = [0x00, 0x01, 0x02, 0x03]; // identity prefix + raw data
+let result2 = MultiBase.fromEncodedBytes(identityBytes.vals());
+// Returns: #ok(([0x01, 0x02, 0x03], #identity))
+```
+
+**`baseFromByte(byte: Nat8): ?MultiBaseOrIdentity`**
+
+Converts a byte value to its corresponding MultiBase encoding type:
+
+```motoko
+let encoding = MultiBase.baseFromByte(0x5a); // 'z' as byte
+// Returns: ?#base58btc
+
+let identity = MultiBase.baseFromByte(0x00); // identity (no encoding)
+// Returns: ?#identity
+```
+
+**`baseToByte(encoding: MultiBaseOrIdentity): Nat8`**
+
+Converts a MultiBase encoding type to its corresponding byte value:
+
+```motoko
+let byte = MultiBase.baseToByte(#base58btc);
+// Returns: 0x5a ('z' as byte)
+
+let identityByte = MultiBase.baseToByte(#identity);
+// Returns: 0x00
 ```
 
 **`baseFromChar(char: Char): ?MultiBase`**
