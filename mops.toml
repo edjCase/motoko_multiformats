@@ -1,9 +1,16 @@
 [package]
 name = "multiformats"
-version = "0.0.4"
+version = "0.0.5"
 description = "A Motoko library for working with Multiformats, including multicodec, multihash, and multibase."
 repository = "https://github.com/edjcase/motoko_multiformats"
-keywords = ["multiformats", "multicodec", "multihash", "multibase", "ipld"]
+keywords = [
+    "multiformats",
+    "multicodec",
+    "multihash",
+    "multibase",
+    "ipld",
+    "varint",
+]
 license = "MIT"
 
 [dependencies]
