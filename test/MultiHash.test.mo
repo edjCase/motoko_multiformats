@@ -379,6 +379,9 @@ test(
         let bytes : Blob = "\12\20\F8\8B\C8\53\80\4C\F2\94\FE\41\7E\4F\A8\30\28\68\9F\CD\B1\B1\59\2C\51\02\E1\47\4D\BC\20\0F\AB\8B\A2\64\6C\69\6E\6B\D8\2A\58\23\00\12\20\02\AC\EC\C5\DE\24\38\EA\41\26\A3\01\0E\CB\1F\8A\59\9C\8E\FF\22\FF\F1\A1\DC\FF\E9\99\B2\7F\D3\DE\64\6E\61\6D\65\64\62\6C\69\70";
         let bytesIter = bytes.vals();
         let #ok(_) = Multiformats.MultiHash.fromBytes(bytesIter) else Debug.trap("Failed to decode MultiHash from bytes");
-        let ?_ = bytesIter.next() else Debug.trap("Expected more bytes after MultiHash");
+        let ?nextByte = bytesIter.next() else Debug.trap("Expected more bytes after MultiHash");
+        if (nextByte != 162) {
+            Debug.trap("Expected next byte to be 162, got " # debug_show (nextByte));
+        };
     },
 );

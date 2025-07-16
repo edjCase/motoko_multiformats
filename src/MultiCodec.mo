@@ -3,7 +3,7 @@ import Iter "mo:new-base/Iter";
 import Nat8 "mo:new-base/Nat8";
 import Result "mo:new-base/Result";
 import Buffer "mo:base/Buffer";
-import VarInt "./VarInt";
+import LEB128 "mo:leb128";
 
 module {
 
@@ -63,7 +63,7 @@ module {
     /// ```
     public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, codec : Codec) {
         let code = toCode(codec);
-        VarInt.toBytesBuffer(buffer, code);
+        LEB128.toUnsignedBytesBuffer(buffer, code);
     };
 
     /// Decodes a multicodec varint from bytes.
@@ -74,7 +74,7 @@ module {
     /// // Returns: #ed25519_pub
     /// ```
     public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<Codec, Text> {
-        switch (VarInt.fromBytes(bytes)) {
+        switch (LEB128.fromUnsignedBytes(bytes)) {
             case (#ok(code)) switch (fromCode(code)) {
                 case (?codec) #ok(codec);
                 case (null) #err("Unsupported multicodec code: " # Nat.toText(code));

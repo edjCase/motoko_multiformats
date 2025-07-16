@@ -5,8 +5,7 @@ import Text "mo:new-base/Text";
 import Nat8 "mo:new-base/Nat8";
 import Blob "mo:new-base/Blob";
 import Buffer "mo:base/Buffer";
-import VarInt "./VarInt";
-import IterTools "mo:itertools/Iter";
+import LEB128 "mo:leb128";
 
 module {
 
@@ -67,10 +66,10 @@ module {
     /// ```
     public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, multihash : MultiHash) {
         // Add algorithm code
-        VarInt.toBytesBuffer(buffer, algorithmToCode(multihash.algorithm));
+        LEB128.toUnsignedBytesBuffer(buffer, algorithmToCode(multihash.algorithm));
 
         // Add digest length
-        VarInt.toBytesBuffer(buffer, multihash.digest.size());
+        LEB128.toUnsignedBytesBuffer(buffer, multihash.digest.size());
 
         // Add digest
         for (byte in multihash.digest.vals()) {
@@ -86,14 +85,14 @@ module {
     /// ```
     public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<MultiHash, Text> {
         // Decode algorithm
-        let algoCode = switch (VarInt.fromBytes(bytes)) {
+        let algoCode = switch (LEB128.fromUnsignedBytes(bytes)) {
             case (#ok(code)) code;
             case (#err(err)) return #err("Failed to decode algorithm code Var Int: " # err);
         };
         let ?algorithm = codeToAlgorithm(algoCode) else return #err("Unknown hash algorithm: " # Nat.toText(algoCode));
 
         // Decode length
-        let length = switch (VarInt.fromBytes(bytes)) {
+        let length = switch (LEB128.fromUnsignedBytes(bytes)) {
             case (#ok(length)) length;
             case (#err(err)) return #err("Failed to decode digest length Var Int: " # err);
         };
@@ -103,7 +102,7 @@ module {
         };
 
         // Decode digest
-        let digestBytes = Iter.toArray(IterTools.take(bytes, expectedLength));
+        let digestBytes = Iter.toArray(Iter.take(bytes, expectedLength));
         if (digestBytes.size() != expectedLength) {
             return #err("Insufficient digest bytes: expected " # Nat.toText(expectedLength) # ", got " # Nat.toText(digestBytes.size()));
         };

@@ -7,7 +7,6 @@ A comprehensive Motoko library for working with Multiformats, including multicod
 - **MultiBase**: Encode/decode data with various base encodings (Base58, Base32, Base64, Base16) with proper prefix handling
 - **MultiCodec**: Support for IPFS/IPLD codec types and cryptographic key formats
 - **MultiHash**: Hash algorithm identification and multihash format support
-- **VarInt**: Variable-length integer encoding/decoding
 
 ## Installation
 
