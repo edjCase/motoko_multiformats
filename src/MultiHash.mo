@@ -9,143 +9,152 @@ import LEB128 "mo:leb128";
 
 module {
 
-    /// Represents hash algorithms supported in multihash format.
-    ///
-    /// ```motoko
-    /// let hashAlgo : Algorithm = #sha2_256; // Most common
-    /// let blakeAlgo : Algorithm = #blake2b_256; // Alternative
-    /// ```
-    public type Algorithm = {
-        #sha2_256; // SHA-256 (32 bytes)
-        #sha2_512; // SHA-512 (64 bytes)
-        #blake2b_256; // Blake2b-256 (32 bytes)
-        #blake2s_256; // Blake2s-256 (32 bytes)
-        #sha3_256; // SHA3-256 (32 bytes)
-        #sha3_512; // SHA3-512 (64 bytes)
+  /// Represents hash algorithms supported in multihash format.
+  ///
+  /// ```motoko
+  /// let hashAlgo : Algorithm = #sha2_256; // Most common
+  /// let blakeAlgo : Algorithm = #blake2b_256; // Alternative
+  /// ```
+  public type Algorithm = {
+    #none; // Identity (no hashing)
+    #sha2_256; // SHA-256 (32 bytes)
+    #sha2_512; // SHA-512 (64 bytes)
+    #blake2b_256; // Blake2b-256 (32 bytes)
+    #blake2s_256; // Blake2s-256 (32 bytes)
+    #sha3_256; // SHA3-256 (32 bytes)
+    #sha3_512; // SHA3-512 (64 bytes)
+  };
+
+  /// Represents a multihash with algorithm and digest.
+  ///
+  /// ```motoko
+  /// let multihash : MultiHash = {
+  ///   algorithm = #sha2_256;
+  ///   digest = "\E3\B0\C4\42..."; // 32-byte hash
+  /// };
+  /// ```
+  public type MultiHash = {
+    algorithm : Algorithm;
+    digest : Blob;
+  };
+
+  /// Encodes a multihash to its binary representation.
+  ///
+  /// ```motoko
+  /// let multihash : MultiHash = {
+  ///   algorithm = #sha2_256;
+  ///   digest = "\E3\B0\C4\42...";
+  /// };
+  /// let bytes = MultiHash.toBytes(multihash);
+  /// // Returns: [0x12, 0x20, 0xE3, 0xB0, ...]
+  /// ```
+  public func toBytes(multihash : MultiHash) : [Nat8] {
+    let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
+    toBytesBuffer(buffer, multihash);
+    Buffer.toArray(buffer);
+  };
+
+  /// Encodes a multihash to its binary representation into a buffer.
+  ///
+  /// ```motoko
+  /// let multihash : MultiHash = {
+  ///   algorithm = #sha2_256;
+  ///   digest = "\E3\B0\C4\42...";
+  /// };
+  /// let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
+  /// MultiHash.toBytesBuffer(buffer, multihash);
+  /// // buffer now contains: [0x12, 0x20, 0xE3, 0xB0, ...]
+  /// ```
+  public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, multihash : MultiHash) {
+    // Add algorithm code
+    LEB128.toUnsignedBytesBuffer(buffer, algorithmToCode(multihash.algorithm));
+
+    // Add digest length
+    LEB128.toUnsignedBytesBuffer(buffer, multihash.digest.size());
+
+    // Add digest
+    for (byte in multihash.digest.vals()) {
+      buffer.add(byte);
     };
+  };
 
-    /// Represents a multihash with algorithm and digest.
-    ///
-    /// ```motoko
-    /// let multihash : MultiHash = {
-    ///   algorithm = #sha2_256;
-    ///   digest = "\E3\B0\C4\42..."; // 32-byte hash
-    /// };
-    /// ```
-    public type MultiHash = {
-        algorithm : Algorithm;
-        digest : Blob;
+  /// Decodes a multihash from bytes.
+  ///
+  /// ```motoko
+  /// let bytes : [Nat8] = [0x12, 0x20, 0xE3, 0xB0, ...];
+  /// let result = MultiHash.fromBytes(bytes.vals());
+  /// ```
+  public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<MultiHash, Text> {
+    // Decode algorithm
+    let algoCode = switch (LEB128.fromUnsignedBytes(bytes)) {
+      case (#ok(code)) code;
+      case (#err(err)) return #err("Failed to decode algorithm code Var Int: " # err);
     };
+    let ?algorithm = codeToAlgorithm(algoCode) else return #err("Unknown hash algorithm: " # Nat.toText(algoCode));
 
-    /// Encodes a multihash to its binary representation.
-    ///
-    /// ```motoko
-    /// let multihash : MultiHash = {
-    ///   algorithm = #sha2_256;
-    ///   digest = "\E3\B0\C4\42...";
-    /// };
-    /// let bytes = MultiHash.toBytes(multihash);
-    /// // Returns: [0x12, 0x20, 0xE3, 0xB0, ...]
-    /// ```
-    public func toBytes(multihash : MultiHash) : [Nat8] {
-        let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
-        toBytesBuffer(buffer, multihash);
-        Buffer.toArray(buffer);
+    // Decode length
+    let length = switch (LEB128.fromUnsignedBytes(bytes)) {
+      case (#ok(length)) length;
+      case (#err(err)) return #err("Failed to decode digest length Var Int: " # err);
     };
-
-    /// Encodes a multihash to its binary representation into a buffer.
-    ///
-    /// ```motoko
-    /// let multihash : MultiHash = {
-    ///   algorithm = #sha2_256;
-    ///   digest = "\E3\B0\C4\42...";
-    /// };
-    /// let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
-    /// MultiHash.toBytesBuffer(buffer, multihash);
-    /// // buffer now contains: [0x12, 0x20, 0xE3, 0xB0, ...]
-    /// ```
-    public func toBytesBuffer(buffer : Buffer.Buffer<Nat8>, multihash : MultiHash) {
-        // Add algorithm code
-        LEB128.toUnsignedBytesBuffer(buffer, algorithmToCode(multihash.algorithm));
-
-        // Add digest length
-        LEB128.toUnsignedBytesBuffer(buffer, multihash.digest.size());
-
-        // Add digest
-        for (byte in multihash.digest.vals()) {
-            buffer.add(byte);
-        };
-    };
-
-    /// Decodes a multihash from bytes.
-    ///
-    /// ```motoko
-    /// let bytes : [Nat8] = [0x12, 0x20, 0xE3, 0xB0, ...];
-    /// let result = MultiHash.fromBytes(bytes.vals());
-    /// ```
-    public func fromBytes(bytes : Iter.Iter<Nat8>) : Result.Result<MultiHash, Text> {
-        // Decode algorithm
-        let algoCode = switch (LEB128.fromUnsignedBytes(bytes)) {
-            case (#ok(code)) code;
-            case (#err(err)) return #err("Failed to decode algorithm code Var Int: " # err);
-        };
-        let ?algorithm = codeToAlgorithm(algoCode) else return #err("Unknown hash algorithm: " # Nat.toText(algoCode));
-
-        // Decode length
-        let length = switch (LEB128.fromUnsignedBytes(bytes)) {
-            case (#ok(length)) length;
-            case (#err(err)) return #err("Failed to decode digest length Var Int: " # err);
-        };
-        let expectedLength = getDigestLength(algorithm);
+    let digestBytes = switch (getDigestLength(algorithm)) {
+      case (?expectedLength) {
         if (length != expectedLength) {
-            return #err("Invalid digest length: expected " # Nat.toText(expectedLength) # ", got " # Nat.toText(length));
+          return #err("Invalid digest length: expected " # Nat.toText(expectedLength) # ", got " # Nat.toText(length));
         };
 
         // Decode digest
         let digestBytes = Iter.toArray(Iter.take(bytes, expectedLength));
         if (digestBytes.size() != expectedLength) {
-            return #err("Insufficient digest bytes: expected " # Nat.toText(expectedLength) # ", got " # Nat.toText(digestBytes.size()));
+          return #err("Insufficient digest bytes: expected " # Nat.toText(expectedLength) # ", got " # Nat.toText(digestBytes.size()));
         };
-
-        #ok({
-            algorithm = algorithm;
-            digest = Blob.fromArray(digestBytes);
-        });
+        digestBytes;
+      };
+      case (null) Iter.toArray(bytes); // Identity, no length check needed
     };
 
-    private func getDigestLength(algorithm : Algorithm) : Nat {
-        switch (algorithm) {
-            case (#sha2_256) 32;
-            case (#sha2_512) 64;
-            case (#blake2b_256) 32;
-            case (#blake2s_256) 32;
-            case (#sha3_256) 32;
-            case (#sha3_512) 64;
-        };
-    };
+    #ok({
+      algorithm = algorithm;
+      digest = Blob.fromArray(digestBytes);
+    });
+  };
 
-    // Convert algorithm to code
-    private func algorithmToCode(algorithm : Algorithm) : Nat {
-        switch (algorithm) {
-            case (#sha2_256) 0x12;
-            case (#sha2_512) 0x13;
-            case (#blake2b_256) 0xb220;
-            case (#blake2s_256) 0xb260;
-            case (#sha3_256) 0x16;
-            case (#sha3_512) 0x14;
-        };
+  private func getDigestLength(algorithm : Algorithm) : ?Nat {
+    switch (algorithm) {
+      case (#none) null; // Identity
+      case (#sha2_256) ?32;
+      case (#sha2_512) ?64;
+      case (#blake2b_256) ?32;
+      case (#blake2s_256) ?32;
+      case (#sha3_256) ?32;
+      case (#sha3_512) ?64;
     };
+  };
 
-    // Convert code to algorithm
-    private func codeToAlgorithm(code : Nat) : ?Algorithm {
-        switch (code) {
-            case (0x12) ?#sha2_256;
-            case (0x13) ?#sha2_512;
-            case (0xb220) ?#blake2b_256;
-            case (0xb260) ?#blake2s_256;
-            case (0x16) ?#sha3_256;
-            case (0x14) ?#sha3_512;
-            case (_) null;
-        };
+  // Convert algorithm to code
+  private func algorithmToCode(algorithm : Algorithm) : Nat {
+    switch (algorithm) {
+      case (#none) 0x00; // Identity
+      case (#sha2_256) 0x12;
+      case (#sha2_512) 0x13;
+      case (#blake2b_256) 0xb220;
+      case (#blake2s_256) 0xb260;
+      case (#sha3_256) 0x16;
+      case (#sha3_512) 0x14;
     };
+  };
+
+  // Convert code to algorithm
+  private func codeToAlgorithm(code : Nat) : ?Algorithm {
+    switch (code) {
+      case (0x00) ?#none; // Identity
+      case (0x12) ?#sha2_256;
+      case (0x13) ?#sha2_512;
+      case (0xb220) ?#blake2b_256;
+      case (0xb260) ?#blake2s_256;
+      case (0x16) ?#sha3_256;
+      case (0x14) ?#sha3_512;
+      case (_) null;
+    };
+  };
 };
