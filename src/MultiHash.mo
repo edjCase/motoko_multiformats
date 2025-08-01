@@ -1,10 +1,11 @@
-import Result "mo:new-base/Result";
-import Nat "mo:new-base/Nat";
-import Iter "mo:new-base/Iter";
-import Text "mo:new-base/Text";
-import Nat8 "mo:new-base/Nat8";
-import Blob "mo:new-base/Blob";
-import Buffer "mo:base/Buffer";
+import Result "mo:core/Result";
+import Nat "mo:core/Nat";
+import Iter "mo:core/Iter";
+import Text "mo:core/Text";
+import Nat8 "mo:core/Nat8";
+import Blob "mo:core/Blob";
+import List "mo:core/List";
+import Buffer "mo:buffer";
 import LEB128 "mo:leb128";
 
 module {
@@ -12,24 +13,24 @@ module {
   /// Represents hash algorithms supported in multihash format.
   ///
   /// ```motoko
-  /// let hashAlgo : Algorithm = #sha2_256; // Most common
-  /// let blakeAlgo : Algorithm = #blake2b_256; // Alternative
+  /// let hashAlgo : Algorithm = #sha2256; // Most common
+  /// let blakeAlgo : Algorithm = #blake2b256; // Alternative
   /// ```
   public type Algorithm = {
     #none; // Identity (no hashing)
-    #sha2_256; // SHA-256 (32 bytes)
-    #sha2_512; // SHA-512 (64 bytes)
-    #blake2b_256; // Blake2b-256 (32 bytes)
-    #blake2s_256; // Blake2s-256 (32 bytes)
-    #sha3_256; // SHA3-256 (32 bytes)
-    #sha3_512; // SHA3-512 (64 bytes)
+    #sha2256; // SHA-256 (32 bytes)
+    #sha2512; // SHA-512 (64 bytes)
+    #blake2b256; // Blake2b-256 (32 bytes)
+    #blake2s256; // Blake2s-256 (32 bytes)
+    #sha3256; // SHA3-256 (32 bytes)
+    #sha3512; // SHA3-512 (64 bytes)
   };
 
   /// Represents a multihash with algorithm and digest.
   ///
   /// ```motoko
   /// let multihash : MultiHash = {
-  ///   algorithm = #sha2_256;
+  ///   algorithm = #sha2256;
   ///   digest = "\E3\B0\C4\42..."; // 32-byte hash
   /// };
   /// ```
@@ -42,23 +43,23 @@ module {
   ///
   /// ```motoko
   /// let multihash : MultiHash = {
-  ///   algorithm = #sha2_256;
+  ///   algorithm = #sha2256;
   ///   digest = "\E3\B0\C4\42...";
   /// };
   /// let bytes = MultiHash.toBytes(multihash);
   /// // Returns: [0x12, 0x20, 0xE3, 0xB0, ...]
   /// ```
   public func toBytes(multihash : MultiHash) : [Nat8] {
-    let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
-    toBytesBuffer(buffer, multihash);
-    Buffer.toArray(buffer);
+    let buffer = List.empty<Nat8>();
+    toBytesBuffer(Buffer.fromList(buffer), multihash);
+    List.toArray(buffer);
   };
 
   /// Encodes a multihash to its binary representation into a buffer.
   ///
   /// ```motoko
   /// let multihash : MultiHash = {
-  ///   algorithm = #sha2_256;
+  ///   algorithm = #sha2256;
   ///   digest = "\E3\B0\C4\42...";
   /// };
   /// let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
@@ -74,7 +75,7 @@ module {
 
     // Add digest
     for (byte in multihash.digest.vals()) {
-      buffer.add(byte);
+      buffer.write(byte);
     };
   };
 
@@ -122,12 +123,12 @@ module {
   private func getDigestLength(algorithm : Algorithm) : ?Nat {
     switch (algorithm) {
       case (#none) null; // Identity
-      case (#sha2_256) ?32;
-      case (#sha2_512) ?64;
-      case (#blake2b_256) ?32;
-      case (#blake2s_256) ?32;
-      case (#sha3_256) ?32;
-      case (#sha3_512) ?64;
+      case (#sha2256) ?32;
+      case (#sha2512) ?64;
+      case (#blake2b256) ?32;
+      case (#blake2s256) ?32;
+      case (#sha3256) ?32;
+      case (#sha3512) ?64;
     };
   };
 
@@ -135,12 +136,12 @@ module {
   private func algorithmToCode(algorithm : Algorithm) : Nat {
     switch (algorithm) {
       case (#none) 0x00; // Identity
-      case (#sha2_256) 0x12;
-      case (#sha2_512) 0x13;
-      case (#blake2b_256) 0xb220;
-      case (#blake2s_256) 0xb260;
-      case (#sha3_256) 0x16;
-      case (#sha3_512) 0x14;
+      case (#sha2256) 0x12;
+      case (#sha2512) 0x13;
+      case (#blake2b256) 0xb220;
+      case (#blake2s256) 0xb260;
+      case (#sha3256) 0x16;
+      case (#sha3512) 0x14;
     };
   };
 
@@ -148,12 +149,12 @@ module {
   private func codeToAlgorithm(code : Nat) : ?Algorithm {
     switch (code) {
       case (0x00) ?#none; // Identity
-      case (0x12) ?#sha2_256;
-      case (0x13) ?#sha2_512;
-      case (0xb220) ?#blake2b_256;
-      case (0xb260) ?#blake2s_256;
-      case (0x16) ?#sha3_256;
-      case (0x14) ?#sha3_512;
+      case (0x12) ?#sha2256;
+      case (0x13) ?#sha2512;
+      case (0xb220) ?#blake2b256;
+      case (0xb260) ?#blake2s256;
+      case (0x16) ?#sha3256;
+      case (0x14) ?#sha3512;
       case (_) null;
     };
   };

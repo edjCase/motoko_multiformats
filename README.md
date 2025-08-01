@@ -183,30 +183,30 @@ Represents various codec types used in IPFS/IPLD and cryptographic keys:
 public type Codec = {
     // Content/Data Codecs
     #raw;          // 0x55 - Raw binary data
-    #dag_pb;       // 0x70 - DAG-PB (Protocol Buffers)
-    #dag_cbor;     // 0x71 - DAG-CBOR
-    #dag_json;     // 0x0129 - DAG-JSON
+    #dagPb;       // 0x70 - DAG-PB (Protocol Buffers)
+    #dagCbor;     // 0x71 - DAG-CBOR
+    #dagJson;     // 0x0129 - DAG-JSON
 
     // Cryptographic Key Codecs
-    #ed25519_pub;       // 0xed - Ed25519 public key
-    #secp256k1_pub;     // 0xe7 - secp256k1 public key
-    #p256_pub;          // 0x1200 - P-256 public key
-    #p384_pub;          // 0x1201 - P-384 public key
-    #p521_pub;          // 0x1202 - P-521 public key
-    #ed448_pub;         // 0xee - Ed448 public key
-    #x25519_pub;        // 0xec - X25519 public key
-    #x448_pub;          // 0xef - X448 public key
-    #rsa_pub;           // 0x1205 - RSA public key
-    #bls12_381_g1_pub;  // 0xea - BLS12-381 G1 public key
-    #bls12_381_g2_pub;  // 0xeb - BLS12-381 G2 public key
+    #ed25519Pub;       // 0xed - Ed25519 public key
+    #secp256k1Pub;     // 0xe7 - secp256k1 public key
+    #p256Pub;          // 0x1200 - P-256 public key
+    #p384Pub;          // 0x1201 - P-384 public key
+    #p521Pub;          // 0x1202 - P-521 public key
+    #ed448Pub;         // 0xee - Ed448 public key
+    #x25519Pub;        // 0xec - X25519 public key
+    #x448Pub;          // 0xef - X448 public key
+    #rsaPub;           // 0x1205 - RSA public key
+    #bls12381G1Pub;  // 0xea - BLS12-381 G1 public key
+    #bls12381G2Pub;  // 0xeb - BLS12-381 G2 public key
 
     // Hash Algorithm Codecs (for multihash compatibility)
-    #sha2_256;     // 0x12 - SHA-256
-    #sha2_512;     // 0x13 - SHA-512
-    #blake2b_256;  // 0xb220 - Blake2b-256
-    #blake2s_256;  // 0xb260 - Blake2s-256
-    #sha3_256;     // 0x16 - SHA3-256
-    #sha3_512;     // 0x14 - SHA3-512
+    #sha2256;     // 0x12 - SHA-256
+    #sha2512;     // 0x13 - SHA-512
+    #blake2b256;  // 0xb220 - Blake2b-256
+    #blake2s256;  // 0xb260 - Blake2s-256
+    #sha3256;     // 0x16 - SHA3-256
+    #sha3512;     // 0x14 - SHA3-512
 };
 ```
 
@@ -217,7 +217,7 @@ public type Codec = {
 Encodes a codec as its multicodec varint representation:
 
 ```motoko
-let bytes = MultiCodec.toBytes(#ed25519_pub);
+let bytes = MultiCodec.toBytes(#ed25519Pub);
 // Returns: [0xed] (varint-encoded 237)
 ```
 
@@ -227,7 +227,7 @@ Encodes a codec as its multicodec varint representation into a buffer:
 
 ```motoko
 let buffer = Buffer.Buffer<Nat8>(10);
-MultiCodec.toBytesBuffer(buffer, #ed25519_pub);
+MultiCodec.toBytesBuffer(buffer, #ed25519Pub);
 // buffer now contains: [0xed]
 ```
 
@@ -238,7 +238,7 @@ Decodes a multicodec varint from bytes:
 ```motoko
 let bytes: [Nat8] = [0xed];
 let result = MultiCodec.fromBytes(bytes.vals());
-// Returns: #ok(#ed25519_pub)
+// Returns: #ok(#ed25519Pub)
 ```
 
 ### MultiHash
@@ -253,12 +253,12 @@ Represents hash algorithms supported in multihash format:
 
 ```motoko
 public type Algorithm = {
-    #sha2_256;     // SHA-256 (32 bytes)
-    #sha2_512;     // SHA-512 (64 bytes)
-    #blake2b_256;  // Blake2b-256 (32 bytes)
-    #blake2s_256;  // Blake2s-256 (32 bytes)
-    #sha3_256;     // SHA3-256 (32 bytes)
-    #sha3_512;     // SHA3-512 (64 bytes)
+    #sha2256;     // SHA-256 (32 bytes)
+    #sha2512;     // SHA-512 (64 bytes)
+    #blake2b256;  // Blake2b-256 (32 bytes)
+    #blake2s256;  // Blake2s-256 (32 bytes)
+    #sha3256;     // SHA3-256 (32 bytes)
+    #sha3512;     // SHA3-512 (64 bytes)
 };
 ```
 
@@ -281,7 +281,7 @@ Encodes a multihash to its binary representation:
 
 ```motoko
 let multihash: MultiHash = {
-    algorithm = #sha2_256;
+    algorithm = #sha2256;
     digest = "\E3\B0\C4\42...";
 };
 let bytes = MultiHash.toBytes(multihash);
@@ -294,7 +294,7 @@ Encodes a multihash to its binary representation into a buffer:
 
 ```motoko
 let multihash: MultiHash = {
-    algorithm = #sha2_256;
+    algorithm = #sha2256;
     digest = "\E3\B0\C4\42...";
 };
 let buffer = Buffer.Buffer<Nat8>(multihash.digest.size() + 10);
@@ -309,7 +309,7 @@ Decodes a multihash from bytes:
 ```motoko
 let bytes: [Nat8] = [0x12, 0x20, 0xE3, 0xB0, ...];
 let result = MultiHash.fromBytes(bytes.vals());
-// Returns: #ok({ algorithm = #sha2_256; digest = ... })
+// Returns: #ok({ algorithm = #sha2256; digest = ... })
 ```
 
 ### VarInt

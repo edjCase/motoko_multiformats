@@ -1,9 +1,10 @@
-import Multiformats "../src"; // Adjust path to your multiformats module
-import Debug "mo:base/Debug";
-import Blob "mo:new-base/Blob";
-import Array "mo:new-base/Array";
-import Text "mo:new-base/Text";
+import Multiformats "../src";
+import Debug "mo:core/Debug";
+import Blob "mo:core/Blob";
+import Array "mo:core/Array";
+import Text "mo:core/Text";
 import { test } "mo:test";
+import Runtime "mo:core/Runtime";
 
 func testMultiHash(
   algorithm : Multiformats.MultiHash.Algorithm,
@@ -27,7 +28,7 @@ func testMultiHashEncoding(
   let actualBytes = Blob.fromArray(Multiformats.MultiHash.toBytes(multihash));
 
   if (actualBytes != expectedBytes) {
-    Debug.trap(
+    Runtime.trap(
       "MultiHash encoding mismatch for " # debug_show (multihash.algorithm) #
       "\nExpected: " # debug_show (expectedBytes) #
       "\nActual:   " # debug_show (actualBytes)
@@ -41,11 +42,11 @@ func testMultiHashDecoding(
 ) {
   let actualMultiHash = switch (Multiformats.MultiHash.fromBytes(bytes.vals())) {
     case (#ok(mh)) mh;
-    case (#err(e)) Debug.trap("MultiHash decoding failed for " # debug_show (bytes) # ": " # e);
+    case (#err(e)) Runtime.trap("MultiHash decoding failed for " # debug_show (bytes) # ": " # e);
   };
 
   if (actualMultiHash.algorithm != expectedMultiHash.algorithm) {
-    Debug.trap(
+    Runtime.trap(
       "MultiHash algorithm mismatch for " # debug_show (bytes) #
       "\nExpected: " # debug_show (expectedMultiHash.algorithm) #
       "\nActual:   " # debug_show (actualMultiHash.algorithm)
@@ -53,7 +54,7 @@ func testMultiHashDecoding(
   };
 
   if (actualMultiHash.digest != expectedMultiHash.digest) {
-    Debug.trap(
+    Runtime.trap(
       "MultiHash digest mismatch for " # debug_show (bytes) #
       "\nExpected: " # debug_show (expectedMultiHash.digest) #
       "\nActual:   " # debug_show (actualMultiHash.digest)
@@ -65,11 +66,11 @@ func testMultiHashRoundtrip(multihash : Multiformats.MultiHash.MultiHash) {
   let encoded = Multiformats.MultiHash.toBytes(multihash);
   let decoded = switch (Multiformats.MultiHash.fromBytes(encoded.vals())) {
     case (#ok(mh)) mh;
-    case (#err(e)) Debug.trap("Round-trip decode failed for " # debug_show (multihash.algorithm) # ": " # e);
+    case (#err(e)) Runtime.trap("Round-trip decode failed for " # debug_show (multihash.algorithm) # ": " # e);
   };
 
   if (decoded.algorithm != multihash.algorithm) {
-    Debug.trap(
+    Runtime.trap(
       "MultiHash round-trip algorithm mismatch for " # debug_show (multihash.algorithm) #
       "\nOriginal: " # debug_show (multihash.algorithm) #
       "\nDecoded:  " # debug_show (decoded.algorithm)
@@ -77,7 +78,7 @@ func testMultiHashRoundtrip(multihash : Multiformats.MultiHash.MultiHash) {
   };
 
   if (decoded.digest != multihash.digest) {
-    Debug.trap(
+    Runtime.trap(
       "MultiHash round-trip digest mismatch for " # debug_show (multihash.algorithm) #
       "\nOriginal: " # debug_show (multihash.digest) #
       "\nDecoded:  " # debug_show (decoded.digest)
@@ -87,7 +88,7 @@ func testMultiHashRoundtrip(multihash : Multiformats.MultiHash.MultiHash) {
 
 func testMultiHashError(invalidBytes : [Nat8], expectedError : Text) {
   switch (Multiformats.MultiHash.fromBytes(invalidBytes.vals())) {
-    case (#ok(mh)) Debug.trap("Expected error for " # debug_show (invalidBytes) # " but got: " # debug_show (mh));
+    case (#ok(mh)) Runtime.trap("Expected error for " # debug_show (invalidBytes) # " but got: " # debug_show (mh));
     case (#err(actualError)) {
       if (not Text.contains(actualError, #text expectedError)) {
         Debug.print("Warning: Error message mismatch for " # debug_show (invalidBytes));
@@ -164,7 +165,7 @@ test(
     // Empty string SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
     let sha256EmptyHash : Blob = "\E3\B0\C4\42\98\FC\1C\14\9A\FB\F4\C8\99\6F\B9\24\27\AE\41\E4\64\9B\93\4C\A4\95\99\1B\78\52\B8\55";
     testMultiHash(
-      #sha2_256,
+      #sha2256,
       sha256EmptyHash,
       "\12\20\E3\B0\C4\42\98\FC\1C\14\9A\FB\F4\C8\99\6F\B9\24\27\AE\41\E4\64\9B\93\4C\A4\95\99\1B\78\52\B8\55", // 0x12 = SHA-256, 0x20 = 32 bytes
     );
@@ -181,7 +182,7 @@ test(
     // Empty string SHA-512 (first 32 bytes for test brevity)
     let sha512Hash : Blob = "\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB";
     testMultiHash(
-      #sha2_512,
+      #sha2512,
       sha512Hash,
       "\13\40\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB\AB",
     );
@@ -198,7 +199,7 @@ test(
   func() {
     let blake2bHash : Blob = "\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD";
     testMultiHash(
-      #blake2b_256,
+      #blake2b256,
       blake2bHash,
       "\A0\E4\02\20\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD", // VarInt encoded 0xb220, then 0x20 = 32 bytes
     );
@@ -213,7 +214,7 @@ test(
   func() {
     let blake2bHash : Blob = "\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD";
     testMultiHash(
-      #blake2b_256,
+      #blake2b256,
       blake2bHash,
       "\A0\E4\02\20\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD\CD", // VarInt encoded 0xb220, then 0x20 = 32 bytes
     );
@@ -229,7 +230,7 @@ test(
   func() {
     let blake2sHash : Blob = "\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF";
     testMultiHash(
-      #blake2s_256,
+      #blake2s256,
       blake2sHash,
       "\E0\E4\02\20\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF\EF", // VarInt encoded 0xb260, then 0x20 = 32 bytes
     );
@@ -245,7 +246,7 @@ test(
   func() {
     let sha3Hash : Blob = "\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12";
     testMultiHash(
-      #sha3_256,
+      #sha3256,
       sha3Hash,
       "\16\20\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12\12", // 0x16 = SHA3-256, 0x20 = 32 bytes
     );
@@ -259,10 +260,10 @@ test(
 test(
   "MultiHash: SHA3-512",
   func() {
-    let sha3_512Hash : Blob = "\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34";
+    let sha3512Hash : Blob = "\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34";
     testMultiHash(
-      #sha3_512,
-      sha3_512Hash,
+      #sha3512,
+      sha3512Hash,
       "\14\40\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34\34", // 0x14 = SHA3-512, 0x40 = 64 bytes
     );
   },
@@ -293,32 +294,32 @@ test(
 
     // Test all algorithms with appropriate digest lengths
     testMultiHashRoundtrip({
-      algorithm = #sha2_256;
+      algorithm = #sha2256;
       digest = "\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #sha2_512;
+      algorithm = #sha2512;
       digest = "\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22\22" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #blake2b_256;
+      algorithm = #blake2b256;
       digest = "\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #blake2s_256;
+      algorithm = #blake2s256;
       digest = "\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44\44" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #sha3_256;
+      algorithm = #sha3256;
       digest = "\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55\55" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #sha3_512;
+      algorithm = #sha3512;
       digest = "\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66\66" : Blob;
     });
   },
@@ -367,10 +368,10 @@ test(
         assert (mh.algorithm == #none);
         let expectedDigest : Blob = "\01\02";
         if (mh.digest != expectedDigest) {
-          Debug.trap("Expected digest to be \\01\\02, got " # debug_show (mh.digest));
+          Runtime.trap("Expected digest to be \\01\\02, got " # debug_show (mh.digest));
         };
       };
-      case (#err(e)) Debug.trap("Identity should accept available bytes but got error: " # e);
+      case (#err(e)) Runtime.trap("Identity should accept available bytes but got error: " # e);
     };
   },
 );
@@ -398,21 +399,21 @@ test(
 
     // IPFS file hash (SHA-256)
     let ipfsHash = {
-      algorithm = #sha2_256;
+      algorithm = #sha2256;
       digest = "\6E\6F\F7\95\0A\36\18\7A\80\16\13\42\6E\85\8D\CE\68\6C\D7\D7\E3\C0\FC\42\EE\03\30\07\2D\24\5C\95" : Blob;
     };
     testMultiHashRoundtrip(ipfsHash);
 
     // Git object hash (SHA-256)
     let gitHash = {
-      algorithm = #sha2_256;
+      algorithm = #sha2256;
       digest = "\DA\39\A3\EE\5E\6B\4B\0D\32\55\BF\EF\95\60\18\90\AF\D8\07\09\04\02\6F\E2\5C\9F\7E\3F\5F\3F\67\0C" : Blob;
     };
     testMultiHashRoundtrip(gitHash);
 
     // Blake2b hash for IPFS alternative
     let blakeHash = {
-      algorithm = #blake2b_256;
+      algorithm = #blake2b256;
       digest = "\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE\BE" : Blob;
     };
     testMultiHashRoundtrip(blakeHash);
@@ -436,23 +437,23 @@ test(
 
     // Single byte algorithm codes
     testMultiHashRoundtrip({
-      algorithm = #sha2_256; // 0x12 - single byte
+      algorithm = #sha2256; // 0x12 - single byte
       digest = "\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #sha3_512; // 0x14 - single byte
+      algorithm = #sha3512; // 0x14 - single byte
       digest = "\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02" : Blob;
     });
 
     // Multi-byte algorithm codes
     testMultiHashRoundtrip({
-      algorithm = #blake2b_256; // 0xb220 - multi-byte VarInt
+      algorithm = #blake2b256; // 0xb220 - multi-byte VarInt
       digest = "\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03" : Blob;
     });
 
     testMultiHashRoundtrip({
-      algorithm = #blake2s_256; // 0xb260 - multi-byte VarInt
+      algorithm = #blake2s256; // 0xb260 - multi-byte VarInt
       digest = "\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04" : Blob;
     });
   },
@@ -491,7 +492,7 @@ test(
 
     // Test SHA-256 binary format for comparison
     let testHash = {
-      algorithm = #sha2_256;
+      algorithm = #sha2256;
       digest = "\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA\AA" : Blob;
     };
 
@@ -559,10 +560,10 @@ test(
   func() {
     let bytes : Blob = "\12\20\F8\8B\C8\53\80\4C\F2\94\FE\41\7E\4F\A8\30\28\68\9F\CD\B1\B1\59\2C\51\02\E1\47\4D\BC\20\0F\AB\8B\A2\64\6C\69\6E\6B\D8\2A\58\23\00\12\20\02\AC\EC\C5\DE\24\38\EA\41\26\A3\01\0E\CB\1F\8A\59\9C\8E\FF\22\FF\F1\A1\DC\FF\E9\99\B2\7F\D3\DE\64\6E\61\6D\65\64\62\6C\69\70";
     let bytesIter = bytes.vals();
-    let #ok(_) = Multiformats.MultiHash.fromBytes(bytesIter) else Debug.trap("Failed to decode MultiHash from bytes");
-    let ?nextByte = bytesIter.next() else Debug.trap("Expected more bytes after MultiHash");
+    let #ok(_) = Multiformats.MultiHash.fromBytes(bytesIter) else Runtime.trap("Failed to decode MultiHash from bytes");
+    let ?nextByte = bytesIter.next() else Runtime.trap("Expected more bytes after MultiHash");
     if (nextByte != 162) {
-      Debug.trap("Expected next byte to be 162, got " # debug_show (nextByte));
+      Runtime.trap("Expected next byte to be 162, got " # debug_show (nextByte));
     };
   },
 );
